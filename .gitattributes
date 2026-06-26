@@ -1,0 +1,3 @@
+# Shell scripts must use LF so WSL/Git Bash shebangs work on Windows checkouts
+*.sh text eol=lf
+scripts/migrate.sh text eol=lf

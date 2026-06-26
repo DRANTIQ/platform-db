@@ -10,7 +10,17 @@ fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MIGRATIONS="$ROOT/migrations"
 
-for f in $(ls "$MIGRATIONS"/*.sql 2>/dev/null | sort); do
+shopt -s nullglob
+files=("$MIGRATIONS"/*.sql)
+IFS=$'\n' files=($(sort <<<"${files[*]}"))
+unset IFS
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "No migrations found in $MIGRATIONS" >&2
+  exit 1
+fi
+
+for f in "${files[@]}"; do
   version="$(basename "$f" .sql)"
   echo "Applying $version ..."
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"

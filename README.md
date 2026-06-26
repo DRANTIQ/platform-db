@@ -24,10 +24,27 @@ docs/           Schema documentation
 
 ## Apply migrations
 
+**WSL / Linux / Git Bash:**
+
 ```bash
 export DATABASE_URL="postgresql://...@pooler.supabase.com:6543/postgres?sslmode=require"
-./scripts/migrate.sh
+bash scripts/migrate.sh
 ```
+
+If you see `bash\r: No such file or directory`, the file had Windows line endings — pull latest or run:
+
+```bash
+sed -i 's/\r$//' scripts/migrate.sh
+```
+
+**PowerShell (Windows):**
+
+```powershell
+$env:DATABASE_URL = "postgresql://...@pooler.supabase.com:6543/postgres?sslmode=require"
+.\scripts\migrate.ps1
+```
+
+Requires `psql` on your PATH (PostgreSQL client).
 
 Never commit `DATABASE_URL` or `.env`.
 
