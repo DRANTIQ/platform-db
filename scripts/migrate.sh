@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply platform-db migrations in order. Requires DATABASE_URL.
+# Apply platform-db migrations in order. Requires DATABASE_URL and psql.
 set -euo pipefail
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -7,23 +7,24 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MIGRATIONS="$ROOT/migrations"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MIGRATIONS_DIR="${ROOT}/migrations"
 
-shopt -s nullglob
-files=("$MIGRATIONS"/*.sql)
-IFS=$'\n' files=($(sort <<<"${files[*]}"))
-unset IFS
-
-if [[ ${#files[@]} -eq 0 ]]; then
-  echo "No migrations found in $MIGRATIONS" >&2
+if ! command -v psql >/dev/null 2>&1; then
+  echo "ERROR: psql not found on PATH" >&2
   exit 1
 fi
 
-for f in "${files[@]}"; do
-  version="$(basename "$f" .sql)"
-  echo "Applying $version ..."
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+shopt -s nullglob
+files=("${MIGRATIONS_DIR}"/*.sql)
+if (( ${#files[@]} == 0 )); then
+  echo "ERROR: no migrations in ${MIGRATIONS_DIR}" >&2
+  exit 1
+fi
+
+for file in "${files[@]}"; do
+  echo "Applying $(basename "${file}") …"
+  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
 done
 
 echo "Done."

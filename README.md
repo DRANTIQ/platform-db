@@ -6,67 +6,72 @@ Version-controlled **Postgres schemas and migrations** for Platform V2.
 
 | This repo | Other repos |
 |-----------|-------------|
-| **All DDL** — CREATE SCHEMA, tables, indexes | **No DDL** — only application code |
-| Single migration history | `compliance-engine` uses the DB |
+| **All DDL** — CREATE SCHEMA, tables, indexes, RLS | **No DDL** — application code only |
+| Single migration history | `compliance-engine` (→ `platform-backend`) uses the DB |
 
-**Database:** Shared Supabase Postgres (Session pooler)  
-**Schemas:** `platform`, `assets`, `policy`, `findings`, `compliance`  
-**Rule:** Never alter legacy schemas (e.g. Steampipe `public.*` tables).
+**Database:** Shared Supabase Postgres (session pooler, `sslmode=require`)  
+**Phase 1 schemas:** `platform`, `assets` only  
+**Rule:** Never alter legacy schemas (`public.*`, legacy `compliance.*`).
 
 ## Layout
 
 ```
 migrations/     Sequential SQL (001_, 002_, …)
-seeds/          Optional dev/reference data
-scripts/        migrate.sh
-docs/           Schema documentation
+seeds/          Optional dev bootstrap (tenant only)
+scripts/        migrate.py, check_schema.py, rollback_v2.sql
+docs/           Schema reference
 ```
 
 ## Apply migrations
 
-**WSL / Linux / Git Bash:**
+Copy credentials locally (never commit):
 
 ```bash
+cp .env.example .env
+# edit DATABASE_URL
+```
+
+**Python (recommended — tracks checksums):**
+
+```bash
+python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
 export DATABASE_URL="postgresql://...@pooler.supabase.com:6543/postgres?sslmode=require"
-bash scripts/migrate.sh
+python scripts/migrate.py
+python scripts/check_schema.py
 ```
 
-If you see `bash\r: No such file or directory`, the file had Windows line endings — pull latest or run:
-
-```bash
-sed -i 's/\r$//' scripts/migrate.sh
-```
-
-**PowerShell (Windows):**
+**PowerShell:**
 
 ```powershell
 $env:DATABASE_URL = "postgresql://...@pooler.supabase.com:6543/postgres?sslmode=require"
 .\scripts\migrate.ps1
+python scripts\check_schema.py
 ```
 
-Requires `psql` on your PATH (PostgreSQL client).
+## Rollback (dev only)
 
-Never commit `DATABASE_URL` or `.env`.
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/rollback_v2.sql
+```
 
-## Related repos
-
-| Repo | Uses DB |
-|------|---------|
-| **platform-db** | **Owns migrations** |
-| **compliance-engine** | Reads/writes all V2 schemas |
-| **platform-collectors** | No DB access |
-
-## Planning
-
-**infra-state-docs/new arch/docs/PLATFORM_DB_REPO.md**
+Drops **only** `platform` and `assets` schemas. Legacy data is untouched.
 
 ## Migration rules
 
 1. Forward-only in production — never edit applied migration files.
-2. One file per change, numbered sequentially.
+2. One numbered file per change; record in `platform.schema_migrations`.
 3. PR review required for all DDL.
-4. Only touch V2 schemas listed above.
+4. Phase 1 excludes `policy`, `findings`, and a V2 `compliance` schema.
+
+## Related repos
+
+| Repo | Role |
+|------|------|
+| **platform-db** | Owns all DDL |
+| **compliance-engine** | Platform V2 backend API + workers |
+| **platform-collectors** | No Postgres access |
 
 ## Status
 
-Migration `001_create_schemas.sql` ready — run once on Supabase before Phase 1.
+Phase 1 migrations: `001`–`004` (schemas, core tables, assets, RLS).
