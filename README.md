@@ -59,10 +59,19 @@ Drops **only** `platform` and `assets` schemas. Legacy data is untouched.
 
 ## Migration rules
 
-1. Forward-only in production — never edit applied migration files.
-2. One numbered file per change; record in `platform.schema_migrations`.
+1. Forward-only in production — **never edit applied migration files**.
+2. One numbered file per change; checksum stored in `platform.schema_migrations`.
 3. PR review required for all DDL.
-4. Phase 1 excludes `policy`, `findings`, and a V2 `compliance` schema.
+4. `compliance-engine/scripts/build_policy_catalog.py` writes framework seed to `compliance-engine/generated/` — **not** into applied `migrations/` files.
+
+### Checksum mismatch (dev/staging)
+
+If migrate fails with `migration XXX was modified after apply`, the DB already ran an older version of that file. Options:
+
+- **Preferred:** add a new migration (`022_…sql`) with the delta — do not rewrite applied files.
+- **Dev repair** (only when DB state already matches the new file):  
+  `python scripts/repair_migration_checksum.py 017_commercial_compliance`  
+  then re-run `migrate.ps1`.
 
 ## Related repos
 
